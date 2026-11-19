@@ -1,0 +1,503 @@
+[
+  {
+    "filename": "invoice_id_01.pdf",
+    "doc_type": "invoice",
+    "lang": "id",
+    "layout": "bordered",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "invoice_number": "INV-2026-0301",
+      "issue_date": "2026-03-15",
+      "due_date": "2026-04-14",
+      "vendor_name": "PT Nusantara Cloud Teknika",
+      "vendor_npwp": "01.234.567.8-012.000",
+      "buyer_name": "PT Bank Karya Digital Tbk",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "GPU Inference Cluster A100",
+          "quantity": 2.0,
+          "unit_price": 4500000.0,
+          "line_total": 9000000.0
+        },
+        {
+          "description": "Managed Vector Database",
+          "quantity": 1.0,
+          "unit_price": 3500000.0,
+          "line_total": 3500000.0
+        }
+      ],
+      "subtotal": 12500000.0,
+      "tax_amount": 1375000.0,
+      "total_amount": 13875000.0
+    }
+  },
+  {
+    "filename": "invoice_id_02.pdf",
+    "doc_type": "invoice",
+    "lang": "id",
+    "layout": "borderless",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "invoice_number": "FKT-2026-0412",
+      "issue_date": "2026-04-02",
+      "due_date": "2026-05-02",
+      "vendor_name": "PT Sinergi Data Nusantara",
+      "vendor_npwp": "02.881.450.3-041.000",
+      "buyer_name": "PT Mandiri Logistik Prima",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Lisensi OCR Enterprise",
+          "quantity": 3.0,
+          "unit_price": 2000000.0,
+          "line_total": 6000000.0
+        },
+        {
+          "description": "Integrasi API ERP",
+          "quantity": 1.0,
+          "unit_price": 4000000.0,
+          "line_total": 4000000.0
+        }
+      ],
+      "subtotal": 10000000.0,
+      "tax_amount": 1100000.0,
+      "total_amount": 11100000.0
+    }
+  },
+  {
+    "filename": "invoice_id_03.pdf",
+    "doc_type": "invoice",
+    "lang": "id",
+    "layout": "bordered",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "invoice_number": "INV-2026-0520",
+      "issue_date": "2026-05-20",
+      "due_date": "2026-06-19",
+      "vendor_name": "CV Mitra Karya Sejahtera",
+      "vendor_npwp": "03.451.992.1-073.000",
+      "buyer_name": "PT Retail Jaya Abadi",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Barcode Scanner Wireless",
+          "quantity": 5.0,
+          "unit_price": 650000.0,
+          "line_total": 3250000.0
+        },
+        {
+          "description": "Thermal Printer 80mm",
+          "quantity": 2.0,
+          "unit_price": 1200000.0,
+          "line_total": 2400000.0
+        },
+        {
+          "description": "Kertas Struk Thermal Box",
+          "quantity": 10.0,
+          "unit_price": 85000.0,
+          "line_total": 850000.0
+        }
+      ],
+      "subtotal": 6500000.0,
+      "tax_amount": 715000.0,
+      "total_amount": 7215000.0
+    }
+  },
+  {
+    "filename": "invoice_en_01.pdf",
+    "doc_type": "invoice",
+    "lang": "en",
+    "layout": "bordered",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "invoice_number": "INV-US-8841",
+      "issue_date": "2026-03-10",
+      "due_date": "2026-04-09",
+      "vendor_name": "Vertex AI Infrastructure Inc.",
+      "vendor_npwp": null,
+      "buyer_name": "Pacific FinTech Holdings",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "Dedicated H100 Node Hours",
+          "quantity": 40.0,
+          "unit_price": 32.5,
+          "line_total": 1300.0
+        },
+        {
+          "description": "Enterprise Telemetry Addon",
+          "quantity": 1.0,
+          "unit_price": 450.0,
+          "line_total": 450.0
+        }
+      ],
+      "subtotal": 1750.0,
+      "tax_amount": 140.0,
+      "total_amount": 1890.0
+    }
+  },
+  {
+    "filename": "invoice_en_02.pdf",
+    "doc_type": "invoice",
+    "lang": "en",
+    "layout": "borderless",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "invoice_number": "INV-EN-9012",
+      "issue_date": "2026-04-18",
+      "due_date": "2026-05-18",
+      "vendor_name": "Meridian Applied Systems LLC",
+      "vendor_npwp": null,
+      "buyer_name": "Atlas Commerce Group",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "RAG Pipeline Architecture Audit",
+          "quantity": 2.0,
+          "unit_price": 1200.0,
+          "line_total": 2400.0
+        },
+        {
+          "description": "Eval Harness Setup",
+          "quantity": 1.0,
+          "unit_price": 800.0,
+          "line_total": 800.0
+        }
+      ],
+      "subtotal": 3200.0,
+      "tax_amount": 320.0,
+      "total_amount": 3520.0
+    }
+  },
+  {
+    "filename": "po_id_01.pdf",
+    "doc_type": "purchase_order",
+    "lang": "id",
+    "layout": "bordered",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "po_number": "PO-2026-0118",
+      "order_date": "2026-03-12",
+      "supplier_name": "PT Distribusi Komputer Sentosa",
+      "buyer_name": "PT Teknologi Cipta Mandiri",
+      "delivery_address": "Jl. Jenderal Sudirman Kav. 52, Jakarta Selatan",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Workstation ThinkStation P3",
+          "quantity": 3.0,
+          "unit_price": 18500000.0,
+          "line_total": 55500000.0
+        },
+        {
+          "description": "Monitor 27 Inch 4K IPS",
+          "quantity": 6.0,
+          "unit_price": 4500000.0,
+          "line_total": 27000000.0
+        }
+      ],
+      "total_amount": 82500000.0
+    }
+  },
+  {
+    "filename": "po_id_02.pdf",
+    "doc_type": "purchase_order",
+    "lang": "id",
+    "layout": "borderless",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "po_number": "PO-2026-0244",
+      "order_date": "2026-04-05",
+      "supplier_name": "PT Cahaya Elektrik Industri",
+      "buyer_name": "PT Manufaktur Timur Jaya",
+      "delivery_address": "Kawasan Industri Rungkut Blok C4, Surabaya",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "UPS Rackmount 3000VA",
+          "quantity": 4.0,
+          "unit_price": 6250000.0,
+          "line_total": 25000000.0
+        },
+        {
+          "description": "Kabel Patch Cat6A 5m",
+          "quantity": 20.0,
+          "unit_price": 125000.0,
+          "line_total": 2500000.0
+        }
+      ],
+      "total_amount": 27500000.0
+    }
+  },
+  {
+    "filename": "po_en_01.pdf",
+    "doc_type": "purchase_order",
+    "lang": "en",
+    "layout": "bordered",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "po_number": "PO-EN-7701",
+      "order_date": "2026-04-01",
+      "supplier_name": "CoreLink Hardware Supply Ltd",
+      "buyer_name": "Stratos Cloud Operations",
+      "delivery_address": "88 Marina Boulevard Tower 2, Singapore 018981",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "NVMe Enterprise SSD 7.68TB",
+          "quantity": 4.0,
+          "unit_price": 820.0,
+          "line_total": 3280.0
+        },
+        {
+          "description": "100GbE QSFP28 Transceiver",
+          "quantity": 8.0,
+          "unit_price": 145.0,
+          "line_total": 1160.0
+        }
+      ],
+      "total_amount": 4440.0
+    }
+  },
+  {
+    "filename": "po_en_02.pdf",
+    "doc_type": "purchase_order",
+    "lang": "en",
+    "layout": "borderless",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "po_number": "PO-SG-3092",
+      "order_date": "2026-05-03",
+      "supplier_name": "Apex Office Ergonomics Pte Ltd",
+      "buyer_name": "Horizon Labs Asia",
+      "delivery_address": "12 One-North Gateway #04-11, Singapore",
+      "currency": "SGD",
+      "line_items": [
+        {
+          "description": "Standing Desk Motorized",
+          "quantity": 5.0,
+          "unit_price": 680.0,
+          "line_total": 3400.0
+        },
+        {
+          "description": "Ergonomic Mesh Chair",
+          "quantity": 5.0,
+          "unit_price": 420.0,
+          "line_total": 2100.0
+        }
+      ],
+      "total_amount": 5500.0
+    }
+  },
+  {
+    "filename": "receipt_id_01.pdf",
+    "doc_type": "receipt",
+    "lang": "id",
+    "layout": "thermal",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "merchant_name": "Kopi Kenangan Senopati",
+      "transaction_date": "2026-03-18",
+      "receipt_number": "STR-2026-8812",
+      "payment_method": "QRIS BCA",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Kopi Susu Aren",
+          "quantity": 2.0,
+          "unit_price": 25000.0,
+          "line_total": 50000.0
+        },
+        {
+          "description": "Butter Croissant",
+          "quantity": 2.0,
+          "unit_price": 30000.0,
+          "line_total": 60000.0
+        }
+      ],
+      "tax_amount": 11000.0,
+      "total_amount": 121000.0
+    }
+  },
+  {
+    "filename": "receipt_en_01.pdf",
+    "doc_type": "receipt",
+    "lang": "en",
+    "layout": "thermal",
+    "expected_status": "APPROVED",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "none",
+    "ground_truth": {
+      "merchant_name": "Metro Tech Supply Store",
+      "transaction_date": "2026-04-22",
+      "receipt_number": "RCPT-44910",
+      "payment_method": "Visa Credit Card",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "USB-C Cable 2m",
+          "quantity": 2.0,
+          "unit_price": 15.0,
+          "line_total": 30.0
+        },
+        {
+          "description": "GaN Charger 65W",
+          "quantity": 1.0,
+          "unit_price": 45.0,
+          "line_total": 45.0
+        }
+      ],
+      "tax_amount": 6.0,
+      "total_amount": 81.0
+    }
+  },
+  {
+    "filename": "invoice_id_mismatch_01.pdf",
+    "doc_type": "invoice",
+    "lang": "id",
+    "layout": "bordered",
+    "expected_status": "NEEDS_REVIEW",
+    "expected_reconciliation_passed": false,
+    "degradation_type": "total_mismatch",
+    "ground_truth": {
+      "invoice_number": "INV-2026-9901",
+      "issue_date": "2026-03-25",
+      "due_date": "2026-04-24",
+      "vendor_name": "PT Solusi Infra Digital",
+      "vendor_npwp": "04.512.880.9-021.000",
+      "buyer_name": "PT Finansi Global Indonesia",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Server Colocation Rack",
+          "quantity": 1.0,
+          "unit_price": 8000000.0,
+          "line_total": 8000000.0
+        },
+        {
+          "description": "Dedicated Fiber 1Gbps",
+          "quantity": 1.0,
+          "unit_price": 4500000.0,
+          "line_total": 4500000.0
+        }
+      ],
+      "subtotal": 12500000.0,
+      "tax_amount": 1375000.0,
+      "total_amount": 14250000.0
+    }
+  },
+  {
+    "filename": "invoice_en_missing_01.pdf",
+    "doc_type": "invoice",
+    "lang": "en",
+    "layout": "borderless",
+    "expected_status": "NEEDS_REVIEW",
+    "expected_reconciliation_passed": true,
+    "degradation_type": "missing_fields",
+    "ground_truth": {
+      "invoice_number": null,
+      "issue_date": "TBD",
+      "due_date": "2026-05-30",
+      "vendor_name": "CloudBridge Advisory Partners",
+      "vendor_npwp": null,
+      "buyer_name": "Northstar Logistics Corp",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "Security Compliance Review",
+          "quantity": 2.0,
+          "unit_price": 900.0,
+          "line_total": 1800.0
+        }
+      ],
+      "subtotal": 1800.0,
+      "tax_amount": 180.0,
+      "total_amount": 1980.0
+    }
+  },
+  {
+    "filename": "po_id_mismatch_01.pdf",
+    "doc_type": "purchase_order",
+    "lang": "id",
+    "layout": "bordered",
+    "expected_status": "NEEDS_REVIEW",
+    "expected_reconciliation_passed": false,
+    "degradation_type": "line_item_mismatch",
+    "ground_truth": {
+      "po_number": "PO-2026-9955",
+      "order_date": "2026-04-11",
+      "supplier_name": "PT Anugerah Peralatan Kantor",
+      "buyer_name": "PT Karya Kreatif Nusantara",
+      "delivery_address": "Jl. HR Rasuna Said Kav. 10, Jakarta Selatan",
+      "currency": "IDR",
+      "line_items": [
+        {
+          "description": "Kursi Kerja Ergonomis",
+          "quantity": 5.0,
+          "unit_price": 450000.0,
+          "line_total": 2500000.0
+        },
+        {
+          "description": "Meja Meeting Kayu",
+          "quantity": 1.0,
+          "unit_price": 3500000.0,
+          "line_total": 3500000.0
+        }
+      ],
+      "total_amount": 6000000.0
+    }
+  },
+  {
+    "filename": "receipt_en_mismatch_01.pdf",
+    "doc_type": "receipt",
+    "lang": "en",
+    "layout": "thermal",
+    "expected_status": "NEEDS_REVIEW",
+    "expected_reconciliation_passed": false,
+    "degradation_type": "receipt_total_mismatch",
+    "ground_truth": {
+      "merchant_name": "Downtown Artisan Roasters",
+      "transaction_date": "2026-05-09",
+      "receipt_number": "RCPT-90811",
+      "payment_method": "Mastercard Debit",
+      "currency": "USD",
+      "line_items": [
+        {
+          "description": "Cold Brew Bottle",
+          "quantity": 3.0,
+          "unit_price": 6.5,
+          "line_total": 19.5
+        },
+        {
+          "description": "Sourdough Sandwich",
+          "quantity": 2.0,
+          "unit_price": 11.5,
+          "line_total": 23.0
+        }
+      ],
+      "tax_amount": 3.4,
+      "total_amount": 55.9
+    }
+  }
+]

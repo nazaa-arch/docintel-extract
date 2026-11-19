@@ -1,0 +1,21 @@
+services:
+  docintel:
+    build: .
+    container_name: docintel-extract
+    ports:
+      - "8000:8000"
+    environment:
+      - DOCINTEL_PROVIDER=${DOCINTEL_PROVIDER:-local}
+      - DOCINTEL_MODEL=${DOCINTEL_MODEL:-qwen2.5vl:7b}
+      - DOCINTEL_OLLAMA_BASE_URL=${DOCINTEL_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - DOCINTEL_GEMINI_API_KEY=${DOCINTEL_GEMINI_API_KEY:-}
+      - DOCINTEL_OPENAI_API_KEY=${DOCINTEL_OPENAI_API_KEY:-}
+      - DOCINTEL_REVIEW_CONFIDENCE_THRESHOLD=${DOCINTEL_REVIEW_CONFIDENCE_THRESHOLD:-0.80}
+      - DOCINTEL_DB_PATH=/app/data/docintel_review.db
+      - DOCINTEL_UPLOAD_DIR=/app/data/uploads
+    volumes:
+      - docintel_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  docintel_data:

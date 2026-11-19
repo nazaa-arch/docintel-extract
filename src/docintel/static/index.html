@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocIntel Extract — Multimodal Document Intelligence &amp; HITL Studio</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #0f172a;
+      --surface-2: #162033;
+      --border: #24324a;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #818cf8;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #f43f5e;
+      --radius: 12px;
+      --font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: radial-gradient(circle at top right, #111c36 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .header-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #04101f;
+      font-size: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+    .brand p { font-size: 12px; color: var(--muted); }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .pill.green { color: #34d399; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12); }
+    .pill.amber { color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.12); }
+    .pill.red { color: #fb7185; border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.12); }
+    .pill.blue { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.12); }
+
+    button, .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover, .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #061224;
+      border: none;
+    }
+    button.success {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+    button.danger {
+      background: rgba(244, 63, 94, 0.16);
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fda4af;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px 40px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+    }
+
+    .card + .card { margin-top: 16px; }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px 16px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      background: rgba(22, 32, 51, 0.45);
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .dropzone strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .dropzone span { font-size: 12px; color: var(--muted); }
+
+    .field-row { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+    select, input, textarea {
+      width: 100%;
+      background: #0a101f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+    }
+    textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
+    select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+    .sample-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .sample-btn {
+      font-size: 12px;
+      padding: 8px 10px;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .queue-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .queue-filters button { font-size: 11px; padding: 5px 9px; }
+    .queue-filters button.active { background: var(--accent); color: #051324; border-color: transparent; }
+
+    .queue-list {
+      max-height: 430px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .queue-item {
+      border: 1px solid var(--border);
+      background: rgba(22, 32, 51, 0.55);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .queue-item:hover, .queue-item.selected { border-color: var(--accent); background: rgba(56, 189, 248, 0.08); }
+    .queue-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .queue-item-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .queue-item-meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 780px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .kpi {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .kpi-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+
+    .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tabs button.active { background: rgba(56, 189, 248, 0.18); border-color: var(--accent); color: #7dd3fc; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 10px; text-align: left; border-bottom: 1px solid rgba(36, 50, 74, 0.7); }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+
+    .bar-wrap {
+      width: 110px;
+      height: 8px;
+      background: #0a101f;
+      border-radius: 999px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .conf-high { background: var(--green); }
+    .conf-mid { background: var(--amber); }
+    .conf-low { background: var(--red); }
+
+    .note-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .note-list li {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0a101f;
+    }
+    .note-list li.pass { border-left: 3px solid var(--green); color: #a7f3d0; }
+    .note-list li.fail { border-left: 3px solid var(--red); color: #fecdd3; }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } }
+
+    pre.json-view {
+      background: #080e1c;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #bae6fd;
+      max-height: 460px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 56px 24px;
+      color: var(--muted);
+    }
+    .empty-state h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #102038;
+      border: 1px solid var(--accent);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">DI</div>
+        <div>
+          <h1>DocIntel Extract</h1>
+          <p>Multimodal Document Intelligence &amp; HITL Review Studio</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="healthPill" class="pill blue">Provider: local</span>
+        <a class="btn" href="/v1/export?format=json" target="_blank">Export JSON</a>
+        <a class="btn" href="/v1/export?format=csv" target="_blank">Export CSV</a>
+        <a class="btn" href="/docs" target="_blank">OpenAPI Docs</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left column: Ingestion + Queue -->
+    <div>
+      <section class="card">
+        <div class="card-title">
+          <span>Document Ingestion</span>
+          <span class="pill blue">PDF / IMG / TXT</span>
+        </div>
+
+        <div id="dropzone" class="dropzone">
+          <strong>Drop PDF, Image, or Text File</strong>
+          <span>or click to browse local files</span>
+          <input id="fileInput" type="file" accept=".pdf,.txt,.png,.jpg,.jpeg,.webp" style="display:none" />
+        </div>
+
+        <div class="field-row">
+          <label for="docTypeSelect">Document Type</label>
+          <select id="docTypeSelect">
+            <option value="auto">Auto-Classify (Invoice / PO / Receipt)</option>
+            <option value="invoice">Invoice (Faktur / Commercial)</option>
+            <option value="purchase_order">Purchase Order (PO)</option>
+            <option value="receipt">Receipt (Struk / Expense)</option>
+          </select>
+        </div>
+
+        <div class="field-row">
+          <label>Quick Demo — Real Generated Sample PDFs</label>
+          <div class="sample-grid">
+            <button class="sample-btn primary" onclick="loadSample('invoice_id_01.pdf')">Load Sample Invoice PDF</button>
+            <button class="sample-btn" onclick="loadSample('po_id_01.pdf')">Sample PO PDF</button>
+            <button class="sample-btn" onclick="loadSample('receipt_id_01.pdf')">Sample Receipt PDF</button>
+            <button class="sample-btn danger" onclick="loadSample('invoice_id_mismatch_01.pdf')">Mismatched PDF (HITL)</button>
+          </div>
+        </div>
+
+        <div class="field-row" style="margin-top: 14px;">
+          <label for="rawTextInput">Or Paste Raw Document Text</label>
+          <textarea id="rawTextInput" rows="4" placeholder="Paste invoice / PO / receipt text here..."></textarea>
+          <button onclick="extractRawText()" style="margin-top: 6px; justify-content: center;">Extract Text Payload</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">
+          <span>HITL Review Queue</span>
+          <span id="queueCount" class="pill">0 jobs</span>
+        </div>
+        <div class="queue-filters">
+          <button class="active" data-filter="" onclick="setQueueFilter(this, '')">All</button>
+          <button data-filter="NEEDS_REVIEW" onclick="setQueueFilter(this, 'NEEDS_REVIEW')">Needs Review</button>
+          <button data-filter="APPROVED" onclick="setQueueFilter(this, 'APPROVED')">Approved</button>
+          <button data-filter="REVIEWED" onclick="setQueueFilter(this, 'REVIEWED')">Reviewed</button>
+        </div>
+        <div id="queueList" class="queue-list">
+          <div style="color:var(--muted); font-size:12px; padding:12px; text-align:center;">
+            No extraction jobs yet. Upload a PDF or load a sample above.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right column: Extraction Inspector & Inline HITL Editor -->
+    <section class="card" id="inspectorCard">
+      <div id="emptyState" class="empty-state">
+        <h2>Ready to Extract &amp; Reconcile Financial Documents</h2>
+        <p>Upload a PDF invoice, purchase order, or receipt — or click <strong>Load Sample Invoice PDF</strong> to see per-field confidence scoring, arithmetic reconciliation, and Human-in-the-Loop review in action.</p>
+      </div>
+
+      <div id="resultView" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <div>
+            <h2 id="resTitle" style="font-size:18px; font-weight:700;">—</h2>
+            <p id="resSub" style="font-size:12px; color:var(--muted); font-family:var(--mono);">—</p>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span id="resDocType" class="pill blue">INVOICE</span>
+            <span id="resStatus" class="pill green">APPROVED</span>
+            <span id="resRecon" class="pill green">RECONCILIATION PASSED</span>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-label">Overall Confidence</div>
+            <div id="kpiConf" class="kpi-value">0.0%</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Total Amount</div>
+            <div id="kpiTotal" class="kpi-value">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Line Items</div>
+            <div id="kpiItems" class="kpi-value">0</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Latency</div>
+            <div id="kpiLatency" class="kpi-value">0 ms</div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="active" onclick="switchTab('confidence', this)">Field Confidence &amp; Audit</button>
+          <button onclick="switchTab('items', this)">Line Items</button>
+          <button onclick="switchTab('hitl', this)">HITL Review Editor</button>
+          <button onclick="switchTab('json', this)">Validated JSON</button>
+        </div>
+
+        <!-- Tab 1: Confidence -->
+        <div id="tab-confidence">
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Extracted Value</th>
+                <th>Confidence</th>
+                <th>Source</th>
+                <th>Review Status</th>
+              </tr>
+            </thead>
+            <tbody id="confTableBody"></tbody>
+          </table>
+
+          <div style="margin-top:16px;">
+            <div class="card-title" style="margin-bottom:6px;">Arithmetic Reconciliation Audit Trail</div>
+            <ul id="reconNotesList" class="note-list"></ul>
+          </div>
+        </div>
+
+        <!-- Tab 2: Line Items -->
+        <div id="tab-items" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Line Total</th>
+                <th>Math Check</th>
+              </tr>
+            </thead>
+            <tbody id="itemsTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Tab 3: Inline HITL Editor -->
+        <div id="tab-hitl" style="display:none;">
+          <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">
+            Edit any flagged or mismatched fields below. Submitting re-runs strict Pydantic validation and cross-field arithmetic reconciliation before marking the record <strong>REVIEWED</strong>.
+          </p>
+          <div id="hitlFieldsGrid" class="editor-grid"></div>
+          <div class="field-row" style="margin-top:12px;">
+            <label for="hitlLineItemsJson">Line Items (JSON Array)</label>
+            <textarea id="hitlLineItemsJson" rows="6"></textarea>
+          </div>
+          <div class="field-row">
+            <label for="hitlReviewerNotes">Reviewer Notes</label>
+            <input id="hitlReviewerNotes" type="text" placeholder="e.g., Corrected OCR total typo verified against source PDF" />
+          </div>
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="success" onclick="submitHitlReview(true)">Re-Validate &amp; Approve (HITL)</button>
+            <button onclick="submitHitlReview(false)">Save Draft (Keep Needs Review)</button>
+          </div>
+        </div>
+
+        <!-- Tab 4: JSON -->
+        <div id="tab-json" style="display:none;">
+          <pre id="jsonView" class="json-view"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let currentJob = null;
+    let currentFilter = '';
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function confClass(score) {
+      if (score >= 0.85) return 'conf-high';
+      if (score >= 0.65) return 'conf-mid';
+      return 'conf-low';
+    }
+
+    function statusPillClass(status) {
+      if (status === 'APPROVED' || status === 'REVIEWED') return 'green';
+      return 'amber';
+    }
+
+    function formatMoney(val, currency) {
+      if (val === null || val === undefined || val === '') return '—';
+      const num = Number(val);
+      if (Number.isNaN(num)) return String(val);
+      const cur = currency || 'IDR';
+      if (cur === 'IDR') return 'Rp ' + num.toLocaleString('id-ID', { maximumFractionDigits: 0 });
+      return cur + ' ' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function refreshHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        document.getElementById('healthPill').textContent =
+          `Provider: ${data.provider} · Threshold: ${(data.review_confidence_threshold * 100).toFixed(0)}%`;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function refreshQueue() {
+      const url = currentFilter ? `/v1/jobs?status=${encodeURIComponent(currentFilter)}` : '/v1/jobs';
+      const res = await fetch(url);
+      const jobs = await res.json();
+      document.getElementById('queueCount').textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'}`;
+      const list = document.getElementById('queueList');
+      if (!jobs.length) {
+        list.innerHTML = `<div style="color:var(--muted); font-size:12px; padding:12px; text-align:center;">No jobs in this filter.</div>`;
+        return;
+      }
+      list.innerHTML = jobs.map(j => `
+        <div class="queue-item ${currentJob && currentJob.job_id === j.job_id ? 'selected' : ''}" onclick="loadJob('${j.job_id}')">
+          <div class="queue-item-top">
+            <span class="queue-item-name">${escapeHtml(j.filename || j.job_id)}</span>
+            <span class="pill ${statusPillClass(j.status)}" style="font-size:10px; padding:2px 7px;">${j.status}</span>
+          </div>
+          <div class="queue-item-meta">
+            <span>${j.doc_type.toUpperCase()} · ${(j.overall_confidence * 100).toFixed(1)}%</span>
+            <span>${j.reconciliation_passed ? 'Math OK' : 'Math Mismatch'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setQueueFilter(btn, filterVal) {
+      currentFilter = filterVal;
+      document.querySelectorAll('.queue-filters button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      refreshQueue();
+    }
+
+    async function loadJob(jobId) {
+      const res = await fetch(`/v1/jobs/${jobId}`);
+      if (!res.ok) return showToast('Failed to load job');
+      const job = await res.json();
+      renderJob(job);
+      refreshQueue();
+    }
+
+    async function loadSample(filename) {
+      showToast(`Extracting sample ${filename}...`);
+      const docType = document.getElementById('docTypeSelect').value;
+      const res = await fetch(`/v1/samples/${encodeURIComponent(filename)}/extract?doc_type=${encodeURIComponent(docType)}`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return showToast(err.detail || 'Sample extraction failed');
+      }
+      const job = await res.json();
+      renderJob(job);
+      refreshQueue();
+      showToast(`Extracted ${filename} (${job.status})`);
+    }
+
+    async function uploadFile(file) {
+      showToast(`Extracting ${file.name}...`);
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('doc_type', document.getElementById('docTypeSelect').value);
+      const res = await fetch('/v1/extract', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json();
+        return showToast(err.detail || 'Upload extraction failed');
+      }
+      const job = await res.json();
+      renderJob(job);
+      refreshQueue();
+      showToast(`Done: ${job.status} (${(job.overall_confidence * 100).toFixed(1)}%)`);
+    }
+
+    async function extractRawText() {
+      const text = document.getElementById('rawTextInput').value.trim();
+      if (!text) return showToast('Please paste document text first.');
+      const docType = document.getElementById('docTypeSelect').value;
+      const res = await fetch('/v1/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, filename: 'pasted_document.txt', doc_type: docType }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return showToast(err.detail || 'Text extraction failed');
+      }
+      const job = await res.json();
+      renderJob(job);
+      refreshQueue();
+      showToast(`Extracted text (${job.status})`);
+    }
+
+    function switchTab(tabName, btn) {
+      ['confidence', 'items', 'hitl', 'json'].forEach(t => {
+        document.getElementById(`tab-${t}`).style.display = t === tabName ? 'block' : 'none';
+      });
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function renderJob(job) {
+      currentJob = job;
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('resultView').style.display = 'block';
+
+      document.getElementById('resTitle').textContent = job.filename || job.job_id;
+      document.getElementById('resSub').textContent = `${job.job_id} · provider=${job.provider} · created=${job.created_at}`;
+
+      document.getElementById('resDocType').textContent = job.doc_type.replace('_', ' ').toUpperCase();
+      const statusEl = document.getElementById('resStatus');
+      statusEl.textContent = job.status;
+      statusEl.className = `pill ${statusPillClass(job.status)}`;
+
+      const reconEl = document.getElementById('resRecon');
+      reconEl.textContent = job.reconciliation_passed ? 'RECONCILIATION PASSED' : 'RECONCILIATION MISMATCH';
+      reconEl.className = `pill ${job.reconciliation_passed ? 'green' : 'red'}`;
+
+      const confPct = (job.overall_confidence * 100).toFixed(1) + '%';
+      const kpiConf = document.getElementById('kpiConf');
+      kpiConf.textContent = confPct;
+      kpiConf.style.color = job.overall_confidence >= 0.85 ? 'var(--green)' : (job.overall_confidence >= 0.65 ? 'var(--amber)' : 'var(--red)');
+
+      document.getElementById('kpiTotal').textContent = formatMoney(job.data.total_amount, job.data.currency);
+      document.getElementById('kpiItems').textContent = String((job.data.line_items || []).length);
+      document.getElementById('kpiLatency').textContent = `${job.latency_ms.toFixed(1)} ms`;
+
+      // Confidence Table
+      const tbody = document.getElementById('confTableBody');
+      tbody.innerHTML = job.field_confidences.map(fc => {
+        const pct = Math.round(fc.confidence * 100);
+        const cls = confClass(fc.confidence);
+        const reviewBadge = fc.needs_review
+          ? `<span class="pill red">REVIEW</span> <span style="font-size:11px; color:#fda4af;">${escapeHtml(fc.reason || '')}</span>`
+          : `<span class="pill green">OK</span>`;
+        return `
+          <tr>
+            <td style="font-family:var(--mono); font-weight:600;">${escapeHtml(fc.field_name)}</td>
+            <td>${escapeHtml(fc.value ?? '—')}</td>
+            <td>
+              <span class="bar-wrap"><span class="bar-fill ${cls}" style="width:${pct}%"></span></span>
+              <span style="font-family:var(--mono); font-size:12px;">${pct}%</span>
+            </td>
+            <td><span class="pill" style="font-size:11px;">${escapeHtml(fc.source)}</span></td>
+            <td>${reviewBadge}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Reconciliation notes
+      const notesEl = document.getElementById('reconNotesList');
+      notesEl.innerHTML = job.reconciliation_notes.map(note => {
+        const cls = note.startsWith('PASS') ? 'pass' : 'fail';
+        return `<li class="${cls}">${escapeHtml(note)}</li>`;
+      }).join('');
+
+      // Line Items table
+      const itemsBody = document.getElementById('itemsTableBody');
+      const items = job.data.line_items || [];
+      const tol = job.data.currency === 'IDR' ? 1.0 : 0.02;
+      itemsBody.innerHTML = items.length ? items.map((it, i) => {
+        const expected = it.quantity * it.unit_price;
+        const ok = Math.abs(expected - it.line_total) <= tol;
+        return `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(it.description)}</td>
+            <td>${it.quantity}</td>
+            <td>${formatMoney(it.unit_price, job.data.currency)}</td>
+            <td>${formatMoney(it.line_total, job.data.currency)}</td>
+            <td><span class="pill ${ok ? 'green' : 'red'}">${ok ? 'OK' : 'DIFF'}</span></td>
+          </tr>
+        `;
+      }).join('') : `<tr><td colspan="6" style="text-align:center; color:var(--muted);">No line items extracted.</td></tr>`;
+
+      // Inline HITL Editor
+      const grid = document.getElementById('hitlFieldsGrid');
+      const scalarEntries = Object.entries(job.data).filter(([k]) => k !== 'line_items');
+      grid.innerHTML = scalarEntries.map(([k, v]) => {
+        const isNum = ['subtotal', 'tax_amount', 'total_amount'].includes(k);
+        return `
+          <div class="field-row" style="margin-top:0;">
+            <label for="hitl_${k}">${escapeHtml(k)}</label>
+            <input id="hitl_${k}" data-field="${k}" data-type="${isNum ? 'number' : 'text'}"
+              type="${isNum ? 'number' : 'text'}" step="any"
+              value="${v !== null && v !== undefined ? escapeHtml(v) : ''}" />
+          </div>
+        `;
+      }).join('');
+      document.getElementById('hitlLineItemsJson').value = JSON.stringify(items, null, 2);
+      document.getElementById('hitlReviewerNotes').value = job.reviewer_notes || '';
+
+      // Raw JSON
+      document.getElementById('jsonView').textContent = JSON.stringify(job, null, 2);
+    }
+
+    async function submitHitlReview(approve) {
+      if (!currentJob) return;
+      const patch = {};
+      document.querySelectorAll('#hitlFieldsGrid input').forEach(inp => {
+        const field = inp.dataset.field;
+        const raw = inp.value.trim();
+        if (inp.dataset.type === 'number') {
+          patch[field] = raw === '' ? null : Number(raw);
+        } else {
+          patch[field] = raw === '' ? null : raw;
+        }
+      });
+
+      try {
+        patch.line_items = JSON.parse(document.getElementById('hitlLineItemsJson').value || '[]');
+      } catch (e) {
+        return showToast('Invalid JSON in line_items editor');
+      }
+
+      const reviewer_notes = document.getElementById('hitlReviewerNotes').value.trim() || null;
+      const res = await fetch(`/v1/jobs/${currentJob.job_id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: patch, reviewer_notes, approve }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return showToast(err.detail || 'Review submission failed');
+      }
+      const updated = await res.json();
+      renderJob(updated);
+      refreshQueue();
+      showToast(`Job updated → ${updated.status} (Reconciliation: ${updated.reconciliation_passed ? 'PASSED' : 'MISMATCH'})`);
+    }
+
+    // Drag & Drop bindings
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+      if (e.target.files && e.target.files[0]) uploadFile(e.target.files[0]);
+      fileInput.value = '';
+    });
+
+    refreshHealth();
+    refreshQueue();
+  </script>
+</body>
+</html>
