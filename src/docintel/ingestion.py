@@ -5,18 +5,31 @@ from __future__ import annotations
 import base64
 import io
 import mimetypes
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
 import fitz  # PyMuPDF
 import pdfplumber
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 SourceFormat = Literal["pdf", "image", "text"]
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log"}
+
+
+def sanitize_filename(filename: str | None, default: str = "document.pdf") -> str:
+    """Strip directory traversal segments and control characters from user-supplied filenames."""
+    if not filename:
+        return default
+    # Normalize Windows/POSIX separators so basename strips both styles cross-platform
+    leaf = filename.replace("\\", "/").split("/")[-1]
+    cleaned = re.sub(r"[\x00-\x1f\x7f]+", "", leaf).strip().strip(".")
+    if not cleaned:
+        return default
+    return cleaned[:180]
 
 
 @dataclass
@@ -103,34 +116,38 @@ def ingest_pdf_bytes(
     page_images_b64: list[str] = []
     reconstructed_rows_all: list[list[str]] = []
 
-    with fitz.open(stream=content, filetype="pdf") as pdf_doc:
-        page_count = len(pdf_doc)
-        for page_idx in range(page_count):
-            page = pdf_doc[page_idx]
-            page_blocks = page.get_text("blocks")
-            page_blocks_sorted = sorted(page_blocks, key=lambda b: (round(b[1], 1), round(b[0], 1)))
+    safe_name = sanitize_filename(filename, default="document.pdf")
+    try:
+        with fitz.open(stream=content, filetype="pdf") as pdf_doc:
+            page_count = len(pdf_doc)
+            for page_idx in range(page_count):
+                page = pdf_doc[page_idx]
+                page_blocks = page.get_text("blocks")
+                page_blocks_sorted = sorted(page_blocks, key=lambda b: (round(b[1], 1), round(b[0], 1)))
 
-            for blk in page_blocks_sorted:
-                text = str(blk[4]).strip()
-                if not text:
-                    continue
-                blocks.append(
-                    {
-                        "page": page_idx + 1,
-                        "bbox": [round(float(blk[0]), 2), round(float(blk[1]), 2), round(float(blk[2]), 2), round(float(blk[3]), 2)],
-                        "text": text,
-                    }
-                )
+                for blk in page_blocks_sorted:
+                    text = str(blk[4]).strip()
+                    if not text:
+                        continue
+                    blocks.append(
+                        {
+                            "page": page_idx + 1,
+                            "bbox": [round(float(blk[0]), 2), round(float(blk[1]), 2), round(float(blk[2]), 2), round(float(blk[3]), 2)],
+                            "text": text,
+                        }
+                    )
 
-            visual_lines, col_rows = _reconstruct_visual_lines(page)
-            all_lines.extend(visual_lines)
-            if col_rows:
-                reconstructed_rows_all.extend(col_rows)
+                visual_lines, col_rows = _reconstruct_visual_lines(page)
+                all_lines.extend(visual_lines)
+                if col_rows:
+                    reconstructed_rows_all.extend(col_rows)
 
-            if render_images and page_idx < max_render_pages:
-                pix = page.get_pixmap(dpi=150)
-                png_bytes = pix.tobytes("png")
-                page_images_b64.append(base64.b64encode(png_bytes).decode("ascii"))
+                if render_images and page_idx < max_render_pages:
+                    pix = page.get_pixmap(dpi=150)
+                    png_bytes = pix.tobytes("png")
+                    page_images_b64.append(base64.b64encode(png_bytes).decode("ascii"))
+    except (fitz.FileDataError, RuntimeError, ValueError) as exc:
+        raise ValueError(f"Invalid or corrupted PDF file '{safe_name}'.") from exc
 
     # Use pdfplumber for bordered/ruled structured table extraction
     try:
@@ -154,7 +171,7 @@ def ingest_pdf_bytes(
 
     raw_text = "\n".join(all_lines).strip()
     return IngestedDocument(
-        filename=filename,
+        filename=safe_name,
         mime_type="application/pdf",
         source_format="pdf",
         raw_text=raw_text,
@@ -169,22 +186,26 @@ def ingest_pdf_bytes(
 
 def ingest_image_bytes(content: bytes, filename: str = "image.png") -> IngestedDocument:
     """Inspect an image via Pillow and prepare base64 PNG payload for Vision-LLM adapters."""
-    with Image.open(io.BytesIO(content)) as img:
-        width, height = img.size
-        img_format = img.format or "PNG"
-        mode = img.mode
-        embedded_text = str(img.info.get("docintel_text", "") or "").strip()
+    safe_name = sanitize_filename(filename, default="image.png")
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            width, height = img.size
+            img_format = img.format or "PNG"
+            mode = img.mode
+            embedded_text = str(img.info.get("docintel_text", "") or "").strip()
 
-        normalized = img.convert("RGB") if mode not in {"RGB", "RGBA", "L"} else img
-        out_buf = io.BytesIO()
-        normalized.save(out_buf, format="PNG")
-        b64_png = base64.b64encode(out_buf.getvalue()).decode("ascii")
+            normalized = img.convert("RGB") if mode not in {"RGB", "RGBA", "L"} else img
+            out_buf = io.BytesIO()
+            normalized.save(out_buf, format="PNG")
+            b64_png = base64.b64encode(out_buf.getvalue()).decode("ascii")
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
+        raise ValueError(f"Invalid or corrupted image file '{safe_name}'.") from exc
 
     lines = [line.strip() for line in embedded_text.splitlines() if line.strip()]
-    mime = mimetypes.guess_type(filename)[0] or f"image/{img_format.lower()}"
+    mime = mimetypes.guess_type(safe_name)[0] or f"image/{img_format.lower()}"
 
     return IngestedDocument(
-        filename=filename,
+        filename=safe_name,
         mime_type=mime,
         source_format="image",
         raw_text=embedded_text,
@@ -205,6 +226,7 @@ def ingest_image_bytes(content: bytes, filename: str = "image.png") -> IngestedD
 
 def ingest_text(text: str, filename: str = "document.txt") -> IngestedDocument:
     """Ingest raw UTF-8 text into a normalized IngestedDocument."""
+    safe_name = sanitize_filename(filename, default="document.txt")
     clean_text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
     lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
     blocks = [{"page": 1, "bbox": [0, idx * 14, 600, (idx + 1) * 14], "text": line} for idx, line in enumerate(lines)]
@@ -223,7 +245,7 @@ def ingest_text(text: str, filename: str = "document.txt") -> IngestedDocument:
 
     tables = [table_rows] if table_rows else []
     return IngestedDocument(
-        filename=filename,
+        filename=safe_name,
         mime_type="text/plain",
         source_format="text",
         raw_text=clean_text,
@@ -243,23 +265,24 @@ def ingest_bytes(
     render_images: bool = False,
 ) -> IngestedDocument:
     """Auto-dispatch raw bytes to PDF, Image, or UTF-8 text ingestion."""
-    ext = Path(filename).suffix.lower()
-    mime = (content_type or mimetypes.guess_type(filename)[0] or "").lower()
+    safe_name = sanitize_filename(filename, default="upload.bin")
+    ext = Path(safe_name).suffix.lower()
+    mime = (content_type or mimetypes.guess_type(safe_name)[0] or "").lower()
 
     if ext == ".pdf" or mime == "application/pdf" or content.startswith(b"%PDF"):
-        return ingest_pdf_bytes(content, filename=filename, render_images=render_images)
+        return ingest_pdf_bytes(content, filename=safe_name, render_images=render_images)
 
     if ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
-        return ingest_image_bytes(content, filename=filename)
+        return ingest_image_bytes(content, filename=safe_name)
 
     if ext in TEXT_EXTENSIONS or mime.startswith("text/") or not ext:
         try:
             decoded = content.decode("utf-8")
         except UnicodeDecodeError:
             decoded = content.decode("latin-1")
-        return ingest_text(decoded, filename=filename)
+        return ingest_text(decoded, filename=safe_name)
 
-    raise ValueError(f"Unsupported file format for '{filename}' (mime='{mime or 'unknown'}'). Supported: PDF, PNG/JPG/WEBP, TXT.")
+    raise ValueError(f"Unsupported file format for '{safe_name}' (mime='{mime or 'unknown'}'). Supported: PDF, PNG/JPG/WEBP, TXT.")
 
 
 def ingest_file(path: Path, render_images: bool = False) -> IngestedDocument:

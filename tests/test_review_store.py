@@ -54,3 +54,40 @@ def test_store_save_filter_review_and_export(pipeline: DocumentIntelligencePipel
     assert len(rows) == 2
     assert {r["status"] for r in rows} == {"APPROVED", "REVIEWED"}
     assert all(r["reconciliation_passed"] == "True" for r in rows)
+
+
+def test_csv_export_neutralizes_formula_injection(pipeline: DocumentIntelligencePipeline) -> None:
+    text = (
+        "COMMERCIAL INVOICE\n"
+        "Vendor: =CMD|' /C calc'!A0\n"
+        "Bill To: +SUM(1+1)*cmd|' /C calc'!A0\n"
+        "Invoice No: INV-2026-SEC01\n"
+        "Issue Date: 2026-06-01\n"
+        "Due Date: 2026-06-30\n"
+        "| Description | Qty | Unit Price | Line Total |\n"
+        "| @HYPERLINK(\"http://evil\") | 1 | $100.00 | $100.00 |\n"
+        "Subtotal: $100.00\n"
+        "VAT (10%): $10.00\n"
+        "Grand Total: $110.00\n"
+    )
+    job = pipeline.process_text(text, filename="=evil_file.txt")
+    pipeline.submit_review(
+        job.job_id,
+        ReviewSubmission(
+            data={},
+            reviewer_notes="-2+3+cmd|' /C calc'!A0",
+            approve=True,
+        ),
+    )
+
+    csv_str, _ = pipeline.store.export_records(fmt="csv")
+    rows = list(csv.DictReader(io.StringIO(csv_str)))
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["filename"].startswith("'=")
+    assert row["counterparty_vendor"].startswith("'=")
+    assert row["buyer_name"].startswith("'+")
+    assert row["line_items_summary"].startswith("'@")
+    assert row["reviewer_notes"].startswith("'-")
+    # Numeric totals must remain unquoted numbers
+    assert row["total_amount"] == "110.0"

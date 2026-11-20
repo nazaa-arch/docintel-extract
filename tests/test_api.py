@@ -128,3 +128,51 @@ def test_samples_endpoints(client: TestClient) -> None:
 
     missing_resp = client.post("/v1/samples/nonexistent.pdf/extract")
     assert missing_resp.status_code == 404
+
+    traversal_resp = client.post("/v1/samples/..%2F..%2Fpyproject.toml/extract")
+    assert traversal_resp.status_code == 404
+
+
+def test_upload_security_corrupt_files_sanitization_and_size_limit(tmp_path: Path) -> None:
+    from docintel.api import create_app
+    from docintel.config import Settings
+
+    small_settings = Settings(
+        provider="local",
+        db_path=tmp_path / "sec.db",
+        upload_dir=tmp_path / "uploads",
+        samples_dir=SAMPLES_DIR,
+        max_upload_bytes=128,
+    )
+    app = create_app(small_settings)
+    with TestClient(app) as sec_client:
+        # 1. Oversized upload rejected with 413
+        big_resp = sec_client.post(
+            "/v1/extract",
+            files={"file": ("big.txt", b"A" * 512, "text/plain")},
+        )
+        assert big_resp.status_code == 413
+
+        # 2. Corrupted PDF returns clean 400 (not 500)
+        corrupt_pdf = sec_client.post(
+            "/v1/extract",
+            files={"file": ("broken.pdf", b"not-a-real-pdf", "application/pdf")},
+        )
+        assert corrupt_pdf.status_code == 400
+        assert "Invalid or corrupted PDF" in corrupt_pdf.json()["detail"]
+
+        # 3. Corrupted image returns clean 400 (not 500)
+        corrupt_img = sec_client.post(
+            "/v1/extract",
+            files={"file": ("broken.png", b"not-a-real-png", "image/png")},
+        )
+        assert corrupt_img.status_code == 400
+        assert "Invalid or corrupted image" in corrupt_img.json()["detail"]
+
+        # 4. Path traversal filename is stripped to safe leaf basename
+        ok_resp = sec_client.post(
+            "/v1/extract",
+            json={"filename": "../../evil\\path\\receipt.txt", "text": "RECEIPT\nMerchant: Safe Cafe"},
+        )
+        assert ok_resp.status_code == 200
+        assert ok_resp.json()["filename"] == "receipt.txt"

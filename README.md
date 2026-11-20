@@ -19,7 +19,7 @@ flowchart LR
     F --> G
     G --> H["Confidence Scorer &<br/>Arithmetic Reconciliation"]
     H -->|"Pass & Conf >= 0.80"| I["Status: APPROVED<br/>(SQLite Store)"]
-    H -->|"Fail or Conf < 0.80"| J["Status: NEEDS_REVIEW<br/>(HITL Review Queue)"]
+    H -->|"Fail or Conf below 0.80"| J["Status: NEEDS_REVIEW<br/>(HITL Review Queue)"]
     J --> K["Human Review UI / API<br/>(Inline Edit + Re-Validate)"]
     K --> L["Status: REVIEWED"]
     I --> M["Batch Export<br/>(JSON / Flattened CSV)"]
@@ -54,20 +54,27 @@ flowchart LR
 
 ## Quickstart
 
-### 1. Local Setup (Python 3.11+)
+### 1. Local Setup (Python 3.11+ — Linux / macOS / Windows)
 
 ```bash
 git clone <repo-url>
 cd docintel-extract
-pip install -r requirements.txt
-cp .env.example .env
+pip install -e ".[dev]"
+```
 
-# Generate 15 real multi-layout sample PDFs (already included in data/samples/)
+Create your local `.env` configuration:
+- **Linux / macOS**: `cp .env.example .env`
+- **Windows PowerShell**: `Copy-Item .env.example .env`
+
+```bash
+# (Optional) Regenerate the 15 synthetic multi-layout sample PDFs (already included in data/samples/)
 python scripts/generate_samples.py
 
 # Launch FastAPI server + Dark-Mode HITL Studio UI
-PYTHONPATH=src uvicorn docintel.api:app --reload --port 8000
+uvicorn docintel.api:app --reload --port 8000
 ```
+
+> If you prefer installing via `pip install -r requirements.txt` instead of `pip install -e ".[dev]"`, run with `PYTHONPATH=src uvicorn docintel.api:app --reload --port 8000` (Linux/macOS) or `$env:PYTHONPATH="src"; uvicorn docintel.api:app --reload --port 8000` (Windows PowerShell).
 
 Open:
 - **Document Intelligence & HITL Studio UI**: `http://127.0.0.1:8000/`
@@ -124,13 +131,15 @@ curl -O "http://127.0.0.1:8000/v1/export?format=json"
 
 ---
 
-## Benchmark Results (15 Real Multi-Layout PDFs)
+## Benchmark Results (Curated Local Benchmark — 15 Synthetic Multi-Layout PDFs)
 
-Evaluated via `python eval/run_eval.py` across 15 generated PyMuPDF documents spanning bordered tables, borderless layouts, and narrow thermal receipts in Indonesian and English (11 clean documents + 4 intentionally degraded/mismatched documents testing missing fields, line-item math errors, and grand-total discrepancies). Full machine-readable output is stored in [`eval/latest_report.json`](eval/latest_report.json).
+> **Benchmark Scope & Reproducibility**: The metrics below are measured on the **curated local evaluation dataset of 15 synthetic multi-layout PDFs** (generated via [`scripts/generate_samples.py`](scripts/generate_samples.py)) using the **deterministic/offline layout & table engine (`provider=local`)**. This benchmark runs at zero API cost and is 100% reproducible in CI via `python eval/run_eval.py`. Real-world scanned/noisy PDFs or handwritten invoices should be evaluated with Vision-LLM providers (`python eval/run_eval.py --provider ollama|gemini|openai`).
 
-| Metric | Measured Result | Details |
+Evaluated across bordered tables, borderless layouts, and narrow thermal receipts in Indonesian and English (11 clean documents + 4 intentionally degraded/mismatched documents testing missing fields, line-item math errors, and grand-total discrepancies). Full machine-readable output is stored in [`eval/latest_report.json`](eval/latest_report.json).
+
+| Metric | Measured Result (`provider=local`) | Details |
 | :--- | ---: | :--- |
-| **Doc-Type Classification Accuracy** | **100.00%** | 15 / 15 PDFs |
+| **Doc-Type Classification Accuracy** | **100.00%** | 15 / 15 synthetic PDFs |
 | **Field-Level Precision / Recall / F1** | **100.00% / 100.00% / 100.00%** | 122 TP, 0 FP, 0 FN |
 | **Line-Item Extraction Precision / Recall / F1** | **100.00% / 100.00% / 100.00%** | 30 TP, 0 FP, 0 FN |
 | **Arithmetic Reconciliation Accuracy** | **100.00%** | 15 / 15 checks accurate |

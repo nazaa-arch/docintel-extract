@@ -1,7 +1,8 @@
-"""Benchmark suite evaluating DocIntel Extract across 15 real multi-layout PDFs."""
+"""Curated local benchmark evaluating DocIntel Extract across 15 synthetic multi-layout PDFs."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -65,7 +66,11 @@ def _f1(precision: float, recall: float) -> float:
     return _safe_div(2.0 * precision * recall, precision + recall)
 
 
-def run_benchmark(samples_dir: Path = SAMPLES_DIR, report_path: Path = REPORT_PATH) -> dict[str, Any]:
+def run_benchmark(
+    samples_dir: Path = SAMPLES_DIR,
+    report_path: Path = REPORT_PATH,
+    provider: str = "local",
+) -> dict[str, Any]:
     """Execute the end-to-end pipeline on every sample PDF and compute benchmark metrics."""
     gt_path = samples_dir / "ground_truth.json"
     if not gt_path.is_file():
@@ -76,12 +81,15 @@ def run_benchmark(samples_dir: Path = SAMPLES_DIR, report_path: Path = REPORT_PA
     dataset: list[dict[str, Any]] = json.loads(gt_path.read_text(encoding="utf-8"))
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        settings = Settings(
-            provider="local",
-            db_path=Path(tmp_dir) / "eval_review.db",
-            upload_dir=Path(tmp_dir) / "uploads",
-            samples_dir=samples_dir,
-            review_confidence_threshold=0.80,
+        base_settings = Settings.from_env()
+        settings = base_settings.model_copy(
+            update={
+                "provider": provider,
+                "db_path": Path(tmp_dir) / "eval_review.db",
+                "upload_dir": Path(tmp_dir) / "uploads",
+                "samples_dir": samples_dir,
+                "review_confidence_threshold": 0.80,
+            }
         )
         pipeline = DocumentIntelligencePipeline(settings)
 
@@ -212,7 +220,7 @@ def run_benchmark(samples_dir: Path = SAMPLES_DIR, report_path: Path = REPORT_PA
 
     report: dict[str, Any] = {
         "dataset_size": total_docs,
-        "provider": "local",
+        "provider": provider,
         "metrics": {
             "doc_type_classification_accuracy": round(doc_type_acc, 4),
             "field_precision": round(field_prec, 4),
@@ -252,7 +260,7 @@ def run_benchmark(samples_dir: Path = SAMPLES_DIR, report_path: Path = REPORT_PA
 def print_markdown_summary(report: dict[str, Any]) -> None:
     """Print a portfolio-ready Markdown benchmark table."""
     m = report["metrics"]
-    print("\n## DocIntel Extract Benchmark Summary (15 Real Multi-Layout PDFs)\n")
+    print(f"\n## DocIntel Extract Curated Benchmark (15 Synthetic Multi-Layout PDFs, provider={report['provider']})\n")
     print("| Metric | Measured Result |")
     print("| :--- | ---: |")
     print(f"| Doc-Type Classification Accuracy | **{m['doc_type_classification_accuracy'] * 100:.2f}%** ({report['counts']['doc_type_correct']}) |")
@@ -266,5 +274,13 @@ def print_markdown_summary(report: dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
-    result_report = run_benchmark()
+    parser = argparse.ArgumentParser(description="Run the 15-PDF DocIntel Extract benchmark suite.")
+    parser.add_argument(
+        "--provider",
+        choices=["local", "ollama", "gemini", "openai"],
+        default="local",
+        help="Extraction backend to evaluate (default: local deterministic layout engine).",
+    )
+    args = parser.parse_args()
+    result_report = run_benchmark(provider=args.provider)
     print_markdown_summary(result_report)

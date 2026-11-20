@@ -92,210 +92,207 @@ def _draw_borderless_table(
 
 
 def _render_invoice_pdf(spec: dict[str, Any], out_path: Path) -> None:
-    doc = fitz.open()
-    page = doc.new_page(width=595, height=842)
-    gt = spec["ground_truth"]
-    lang = spec["lang"]
-    bordered = spec["layout"] == "bordered"
-    cur = gt["currency"]
+    with fitz.open() as doc:
+        page = doc.new_page(width=595, height=842)
+        gt = spec["ground_truth"]
+        lang = spec["lang"]
+        bordered = spec["layout"] == "bordered"
+        cur = gt["currency"]
 
-    title = "FAKTUR PENJUALAN / INVOICE" if lang == "id" else "COMMERCIAL INVOICE"
-    page.insert_text(fitz.Point(40, 48), title, fontname="hebo", fontsize=16, color=(0.08, 0.18, 0.36))
-    page.draw_line(fitz.Point(40, 56), fitz.Point(555, 56), color=(0.12, 0.45, 0.75), width=1.6)
+        title = "FAKTUR PENJUALAN / INVOICE" if lang == "id" else "COMMERCIAL INVOICE"
+        page.insert_text(fitz.Point(40, 48), title, fontname="hebo", fontsize=16, color=(0.08, 0.18, 0.36))
+        page.draw_line(fitz.Point(40, 56), fitz.Point(555, 56), color=(0.12, 0.45, 0.75), width=1.6)
 
-    y = 80.0
-    if lang == "id":
-        header_lines = [
-            f"Penjual: {gt['vendor_name']}",
-            f"NPWP: {gt['vendor_npwp']}" if gt.get("vendor_npwp") else "",
-            f"Tagihan Kepada: {gt['buyer_name']}",
-            f"No. Faktur: {gt['invoice_number']}" if gt.get("invoice_number") else "",
-            f"Tanggal Faktur: {spec['display_issue_date']}",
-            f"Jatuh Tempo: {spec['display_due_date']}",
+        y = 80.0
+        if lang == "id":
+            header_lines = [
+                f"Penjual: {gt['vendor_name']}",
+                f"NPWP: {gt['vendor_npwp']}" if gt.get("vendor_npwp") else "",
+                f"Tagihan Kepada: {gt['buyer_name']}",
+                f"No. Faktur: {gt['invoice_number']}" if gt.get("invoice_number") else "",
+                f"Tanggal Faktur: {spec['display_issue_date']}",
+                f"Jatuh Tempo: {spec['display_due_date']}",
+            ]
+        else:
+            header_lines = [
+                f"Vendor: {gt['vendor_name']}",
+                f"Bill To: {gt['buyer_name']}",
+                f"Invoice No: {gt['invoice_number']}" if gt.get("invoice_number") else "",
+                f"Issue Date: {spec['display_issue_date']}",
+                f"Due Date: {spec['display_due_date']}",
+            ]
+
+        for line in header_lines:
+            if not line:
+                continue
+            page.insert_text(fitz.Point(40, y), line, fontname="helv", fontsize=10.0, color=(0.12, 0.14, 0.18))
+            y += 17.0
+
+        y += 12.0
+        headers = ["Deskripsi", "Jumlah", "Harga Satuan", "Total"] if lang == "id" else ["Description", "Qty", "Unit Price", "Line Total"]
+        rows = [
+            [
+                it["description"],
+                f"{it['quantity']:g}",
+                _fmt_money(it["unit_price"], cur),
+                _fmt_money(it["line_total"], cur),
+            ]
+            for it in gt["line_items"]
         ]
-    else:
-        header_lines = [
-            f"Vendor: {gt['vendor_name']}",
-            f"Bill To: {gt['buyer_name']}",
-            f"Invoice No: {gt['invoice_number']}" if gt.get("invoice_number") else "",
-            f"Issue Date: {spec['display_issue_date']}",
-            f"Due Date: {spec['display_due_date']}",
-        ]
 
-    for line in header_lines:
-        if not line:
-            continue
-        page.insert_text(fitz.Point(40, y), line, fontname="helv", fontsize=10.0, color=(0.12, 0.14, 0.18))
-        y += 17.0
+        if bordered:
+            y = _draw_bordered_table(page, 40, y, [245, 55, 105, 110], headers, rows)
+        else:
+            y = _draw_borderless_table(page, 40, y, [0, 260, 325, 425], headers, rows)
 
-    y += 12.0
-    headers = ["Deskripsi", "Jumlah", "Harga Satuan", "Total"] if lang == "id" else ["Description", "Qty", "Unit Price", "Line Total"]
-    rows = [
-        [
-            it["description"],
-            f"{it['quantity']:g}",
-            _fmt_money(it["unit_price"], cur),
-            _fmt_money(it["line_total"], cur),
-        ]
-        for it in gt["line_items"]
-    ]
-
-    if bordered:
-        y = _draw_bordered_table(page, 40, y, [245, 55, 105, 110], headers, rows)
-    else:
-        y = _draw_borderless_table(page, 40, y, [0, 260, 325, 425], headers, rows)
-
-    y += 18.0
-    tax_label = f"PPN {spec.get('tax_pct', 11)}%" if lang == "id" else f"VAT / Tax ({spec.get('tax_pct', 10)}%)"
-    total_label = "Total Tagihan" if lang == "id" else "Grand Total"
-
-    summary_rows = [
-        ("Subtotal", _fmt_money(gt["subtotal"], cur)),
-        (tax_label, _fmt_money(gt["tax_amount"], cur)),
-        (total_label, _fmt_money(gt["total_amount"], cur)),
-    ]
-    for idx, (label, val) in enumerate(summary_rows):
-        font = "hebo" if idx == 2 else "helv"
-        size = 11.0 if idx == 2 else 10.0
-        page.insert_text(fitz.Point(320, y), f"{label}:", fontname=font, fontsize=size, color=(0.1, 0.12, 0.16))
-        page.insert_text(fitz.Point(435, y), val, fontname=font, fontsize=size, color=(0.1, 0.12, 0.16))
         y += 18.0
+        tax_label = f"PPN {spec.get('tax_pct', 11)}%" if lang == "id" else f"VAT / Tax ({spec.get('tax_pct', 10)}%)"
+        total_label = "Total Tagihan" if lang == "id" else "Grand Total"
 
-    doc.save(out_path)
-    doc.close()
+        summary_rows = [
+            ("Subtotal", _fmt_money(gt["subtotal"], cur)),
+            (tax_label, _fmt_money(gt["tax_amount"], cur)),
+            (total_label, _fmt_money(gt["total_amount"], cur)),
+        ]
+        for idx, (label, val) in enumerate(summary_rows):
+            font = "hebo" if idx == 2 else "helv"
+            size = 11.0 if idx == 2 else 10.0
+            page.insert_text(fitz.Point(320, y), f"{label}:", fontname=font, fontsize=size, color=(0.1, 0.12, 0.16))
+            page.insert_text(fitz.Point(435, y), val, fontname=font, fontsize=size, color=(0.1, 0.12, 0.16))
+            y += 18.0
+
+        doc.save(out_path)
 
 
 def _render_po_pdf(spec: dict[str, Any], out_path: Path) -> None:
-    doc = fitz.open()
-    page = doc.new_page(width=595, height=842)
-    gt = spec["ground_truth"]
-    lang = spec["lang"]
-    bordered = spec["layout"] == "bordered"
-    cur = gt["currency"]
+    with fitz.open() as doc:
+        page = doc.new_page(width=595, height=842)
+        gt = spec["ground_truth"]
+        lang = spec["lang"]
+        bordered = spec["layout"] == "bordered"
+        cur = gt["currency"]
 
-    title = "PESANAN PEMBELIAN / PURCHASE ORDER" if lang == "id" else "PURCHASE ORDER"
-    page.insert_text(fitz.Point(40, 48), title, fontname="hebo", fontsize=16, color=(0.12, 0.25, 0.42))
-    page.draw_line(fitz.Point(40, 56), fitz.Point(555, 56), color=(0.2, 0.4, 0.65), width=1.6)
+        title = "PESANAN PEMBELIAN / PURCHASE ORDER" if lang == "id" else "PURCHASE ORDER"
+        page.insert_text(fitz.Point(40, 48), title, fontname="hebo", fontsize=16, color=(0.12, 0.25, 0.42))
+        page.draw_line(fitz.Point(40, 56), fitz.Point(555, 56), color=(0.2, 0.4, 0.65), width=1.6)
 
-    y = 80.0
-    if lang == "id":
-        header_lines = [
-            f"No. PO: {gt['po_number']}",
-            f"Tanggal Pesanan: {spec['display_order_date']}",
-            f"Pemasok: {gt['supplier_name']}",
-            f"Pembeli: {gt['buyer_name']}",
-            f"Alamat Pengiriman: {gt['delivery_address']}",
+        y = 80.0
+        if lang == "id":
+            header_lines = [
+                f"No. PO: {gt['po_number']}",
+                f"Tanggal Pesanan: {spec['display_order_date']}",
+                f"Pemasok: {gt['supplier_name']}",
+                f"Pembeli: {gt['buyer_name']}",
+                f"Alamat Pengiriman: {gt['delivery_address']}",
+            ]
+        else:
+            header_lines = [
+                f"PO Number: {gt['po_number']}",
+                f"Order Date: {spec['display_order_date']}",
+                f"Supplier: {gt['supplier_name']}",
+                f"Buyer: {gt['buyer_name']}",
+                f"Delivery Address: {gt['delivery_address']}",
+            ]
+
+        for line in header_lines:
+            page.insert_text(fitz.Point(40, y), line, fontname="helv", fontsize=10.0, color=(0.12, 0.14, 0.18))
+            y += 17.0
+
+        y += 12.0
+        headers = ["Barang / Deskripsi", "Qty", "Harga Satuan", "Jumlah Harga"] if lang == "id" else ["Item Description", "Qty", "Unit Price", "Amount"]
+        rows = [
+            [
+                it["description"],
+                f"{it['quantity']:g}",
+                _fmt_money(it["unit_price"], cur),
+                _fmt_money(it["line_total"], cur),
+            ]
+            for it in gt["line_items"]
         ]
-    else:
-        header_lines = [
-            f"PO Number: {gt['po_number']}",
-            f"Order Date: {spec['display_order_date']}",
-            f"Supplier: {gt['supplier_name']}",
-            f"Buyer: {gt['buyer_name']}",
-            f"Delivery Address: {gt['delivery_address']}",
-        ]
 
-    for line in header_lines:
-        page.insert_text(fitz.Point(40, y), line, fontname="helv", fontsize=10.0, color=(0.12, 0.14, 0.18))
-        y += 17.0
+        if bordered:
+            y = _draw_bordered_table(page, 40, y, [245, 55, 105, 110], headers, rows)
+        else:
+            y = _draw_borderless_table(page, 40, y, [0, 260, 325, 425], headers, rows)
 
-    y += 12.0
-    headers = ["Barang / Deskripsi", "Qty", "Harga Satuan", "Jumlah Harga"] if lang == "id" else ["Item Description", "Qty", "Unit Price", "Amount"]
-    rows = [
-        [
-            it["description"],
-            f"{it['quantity']:g}",
-            _fmt_money(it["unit_price"], cur),
-            _fmt_money(it["line_total"], cur),
-        ]
-        for it in gt["line_items"]
-    ]
+        y += 20.0
+        total_label = "Total Pesanan" if lang == "id" else "Total Order"
+        page.insert_text(fitz.Point(320, y), f"{total_label}:", fontname="hebo", fontsize=11.0, color=(0.1, 0.12, 0.16))
+        page.insert_text(fitz.Point(435, y), _fmt_money(gt["total_amount"], cur), fontname="hebo", fontsize=11.0, color=(0.1, 0.12, 0.16))
 
-    if bordered:
-        y = _draw_bordered_table(page, 40, y, [245, 55, 105, 110], headers, rows)
-    else:
-        y = _draw_borderless_table(page, 40, y, [0, 260, 325, 425], headers, rows)
-
-    y += 20.0
-    total_label = "Total Pesanan" if lang == "id" else "Total Order"
-    page.insert_text(fitz.Point(320, y), f"{total_label}:", fontname="hebo", fontsize=11.0, color=(0.1, 0.12, 0.16))
-    page.insert_text(fitz.Point(435, y), _fmt_money(gt["total_amount"], cur), fontname="hebo", fontsize=11.0, color=(0.1, 0.12, 0.16))
-
-    doc.save(out_path)
-    doc.close()
+        doc.save(out_path)
 
 
 def _render_receipt_pdf(spec: dict[str, Any], out_path: Path) -> None:
-    doc = fitz.open()
-    # Narrow thermal-receipt PDF dimensions
-    page = doc.new_page(width=360, height=560)
-    gt = spec["ground_truth"]
-    lang = spec["lang"]
-    cur = gt["currency"]
+    with fitz.open() as doc:
+        # Narrow thermal-receipt PDF dimensions
+        page = doc.new_page(width=360, height=560)
+        gt = spec["ground_truth"]
+        lang = spec["lang"]
+        cur = gt["currency"]
 
-    title = "STRUK PEMBAYARAN" if lang == "id" else "SALES RECEIPT"
-    page.insert_text(fitz.Point(24, 34), title, fontname="hebo", fontsize=13, color=(0.1, 0.12, 0.16))
-    page.draw_line(fitz.Point(24, 42), fitz.Point(336, 42), color=(0.3, 0.3, 0.3), width=1.0)
+        title = "STRUK PEMBAYARAN" if lang == "id" else "SALES RECEIPT"
+        page.insert_text(fitz.Point(24, 34), title, fontname="hebo", fontsize=13, color=(0.1, 0.12, 0.16))
+        page.draw_line(fitz.Point(24, 42), fitz.Point(336, 42), color=(0.3, 0.3, 0.3), width=1.0)
 
-    y = 62.0
-    if lang == "id":
-        meta_lines = [
-            f"Merchant: {gt['merchant_name']}",
-            f"No. Struk: {gt['receipt_number']}",
-            f"Tanggal Transaksi: {spec['display_tx_date']}",
-            f"Metode Pembayaran: {gt['payment_method']}",
-        ]
-    else:
-        meta_lines = [
-            f"Merchant: {gt['merchant_name']}",
-            f"Receipt No: {gt['receipt_number']}",
-            f"Transaction Date: {spec['display_tx_date']}",
-            f"Payment Method: {gt['payment_method']}",
-        ]
+        y = 62.0
+        if lang == "id":
+            meta_lines = [
+                f"Merchant: {gt['merchant_name']}",
+                f"No. Struk: {gt['receipt_number']}",
+                f"Tanggal Transaksi: {spec['display_tx_date']}",
+                f"Metode Pembayaran: {gt['payment_method']}",
+            ]
+        else:
+            meta_lines = [
+                f"Merchant: {gt['merchant_name']}",
+                f"Receipt No: {gt['receipt_number']}",
+                f"Transaction Date: {spec['display_tx_date']}",
+                f"Payment Method: {gt['payment_method']}",
+            ]
 
-    for line in meta_lines:
-        page.insert_text(fitz.Point(24, y), line, fontname="helv", fontsize=9.5, color=(0.12, 0.14, 0.18))
+        for line in meta_lines:
+            page.insert_text(fitz.Point(24, y), line, fontname="helv", fontsize=9.5, color=(0.12, 0.14, 0.18))
+            y += 15.0
+
+        y += 6.0
+        page.draw_line(fitz.Point(24, y), fitz.Point(336, y), color=(0.6, 0.6, 0.6), width=0.8)
+        y += 16.0
+
+        headers = ["Item", "Qty", "Harga", "Total"] if lang == "id" else ["Item", "Qty", "Price", "Total"]
+        offsets = [0, 140, 180, 248]
+        for off, h in zip(offsets, headers, strict=True):
+            page.insert_text(fitz.Point(24 + off, y), h, fontname="hebo", fontsize=8.5, color=(0.15, 0.18, 0.22))
         y += 15.0
 
-    y += 6.0
-    page.draw_line(fitz.Point(24, y), fitz.Point(336, y), color=(0.6, 0.6, 0.6), width=0.8)
-    y += 16.0
+        for it in gt["line_items"]:
+            vals = [
+                it["description"],
+                f"{it['quantity']:g}",
+                _fmt_money(it["unit_price"], cur),
+                _fmt_money(it["line_total"], cur),
+            ]
+            for off, val in zip(offsets, vals, strict=True):
+                page.insert_text(fitz.Point(24 + off, y), val, fontname="helv", fontsize=8.5, color=(0.1, 0.12, 0.15))
+            y += 15.0
 
-    headers = ["Item", "Qty", "Harga", "Total"] if lang == "id" else ["Item", "Qty", "Price", "Total"]
-    offsets = [0, 140, 180, 248]
-    for off, h in zip(offsets, headers, strict=True):
-        page.insert_text(fitz.Point(24 + off, y), h, fontname="hebo", fontsize=8.5, color=(0.15, 0.18, 0.22))
-    y += 15.0
+        y += 4.0
+        page.draw_line(fitz.Point(24, y), fitz.Point(336, y), color=(0.6, 0.6, 0.6), width=0.8)
+        y += 18.0
 
-    for it in gt["line_items"]:
-        vals = [
-            it["description"],
-            f"{it['quantity']:g}",
-            _fmt_money(it["unit_price"], cur),
-            _fmt_money(it["line_total"], cur),
-        ]
-        for off, val in zip(offsets, vals, strict=True):
-            page.insert_text(fitz.Point(24 + off, y), val, fontname="helv", fontsize=8.5, color=(0.1, 0.12, 0.15))
-        y += 15.0
+        tax_label = "PB1 (10%)" if lang == "id" else "Sales Tax (8%)"
+        total_label = "Total Bayar" if lang == "id" else "Grand Total"
+        page.insert_text(fitz.Point(145, y), f"{tax_label}:", fontname="helv", fontsize=9.0)
+        page.insert_text(fitz.Point(255, y), _fmt_money(gt["tax_amount"], cur), fontname="helv", fontsize=9.0)
+        y += 17.0
+        page.insert_text(fitz.Point(145, y), f"{total_label}:", fontname="hebo", fontsize=10.5)
+        page.insert_text(fitz.Point(255, y), _fmt_money(gt["total_amount"], cur), fontname="hebo", fontsize=10.5)
+        y += 28.0
 
-    y += 4.0
-    page.draw_line(fitz.Point(24, y), fitz.Point(336, y), color=(0.6, 0.6, 0.6), width=0.8)
-    y += 18.0
+        footer = "Terima kasih telah berbelanja!" if lang == "id" else "Thank you for your purchase!"
+        page.insert_text(fitz.Point(24, y), footer, fontname="helv", fontsize=8.5, color=(0.35, 0.4, 0.48))
 
-    tax_label = "PB1 (10%)" if lang == "id" else "Sales Tax (8%)"
-    total_label = "Total Bayar" if lang == "id" else "Grand Total"
-    page.insert_text(fitz.Point(145, y), f"{tax_label}:", fontname="helv", fontsize=9.0)
-    page.insert_text(fitz.Point(255, y), _fmt_money(gt["tax_amount"], cur), fontname="helv", fontsize=9.0)
-    y += 17.0
-    page.insert_text(fitz.Point(145, y), f"{total_label}:", fontname="hebo", fontsize=10.5)
-    page.insert_text(fitz.Point(255, y), _fmt_money(gt["total_amount"], cur), fontname="hebo", fontsize=10.5)
-    y += 28.0
-
-    footer = "Terima kasih telah berbelanja!" if lang == "id" else "Thank you for your purchase!"
-    page.insert_text(fitz.Point(24, y), footer, fontname="helv", fontsize=8.5, color=(0.35, 0.4, 0.48))
-
-    doc.save(out_path)
-    doc.close()
+        doc.save(out_path)
 
 
 SAMPLE_SPECS: list[dict[str, Any]] = [

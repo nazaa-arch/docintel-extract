@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from docintel.schemas import (
     DocType,
@@ -22,32 +22,32 @@ from docintel.schemas import (
 )
 
 ExportFormat = Literal["json", "csv"]
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_csv_cell(value: Any) -> Any:
+    """Neutralize spreadsheet formula injection (OWASP CSV/DDE injection) on text cells."""
+    if isinstance(value, str):
+        stripped = value.lstrip(" ")
+        if stripped and stripped[0] in _CSV_FORMULA_PREFIXES:
+            return f"'{value}"
+    return value
 
 
 class ReviewStore:
     """Thread-safe SQLite store for extraction jobs and Human-in-the-Loop review workflows."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, auto_init: bool = True) -> None:
         self.db_path = Path(db_path)
+        self._initialized = False
+        if auto_init:
+            self.init_schema()
+
+    def init_schema(self) -> None:
+        """Create parent directories, enable WAL mode, and initialize SQLite schema once."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
-
-    @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.db_path, timeout=15.0)
-        conn.row_factory = sqlite3.Row
-        try:
+        with self._connect(ensure_init=False) as conn:
             conn.execute("PRAGMA journal_mode=WAL;")
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
-
-    def _init_db(self) -> None:
-        with self._connect() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS extraction_jobs (
@@ -71,6 +71,23 @@ class ReviewStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON extraction_jobs(status, created_at DESC)"
             )
+        self._initialized = True
+
+    @contextmanager
+    def _connect(self, ensure_init: bool = True) -> Iterator[sqlite3.Connection]:
+        if ensure_init and not self._initialized:
+            self.init_schema()
+        conn = sqlite3.connect(self.db_path, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA busy_timeout=15000;")
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _row_to_result(self, row: sqlite3.Row) -> ExtractionResult:
         doc_type: DocType = row["doc_type"]
@@ -188,13 +205,15 @@ class ReviewStore:
         statuses: list[str] | None = None,
     ) -> tuple[str, str]:
         """Export approved/reviewed (or specified) extraction jobs as JSON or flattened CSV."""
-        allowed = [s.upper() for s in (statuses or ["APPROVED", "REVIEWED"])]
-        placeholders = ", ".join("?" for _ in allowed)
-        sql = f"SELECT * FROM extraction_jobs WHERE status IN ({placeholders}) ORDER BY created_at DESC"
-
-        with self._connect() as conn:
-            rows = conn.execute(sql, allowed).fetchall()
-        results = [self._row_to_result(row) for row in rows]
+        allowed = [s.upper() for s in (["APPROVED", "REVIEWED"] if statuses is None else statuses)]
+        if not allowed:
+            results: list[ExtractionResult] = []
+        else:
+            placeholders = ", ".join("?" for _ in allowed)
+            sql = f"SELECT * FROM extraction_jobs WHERE status IN ({placeholders}) ORDER BY created_at DESC"
+            with self._connect() as conn:
+                rows = conn.execute(sql, allowed).fetchall()
+            results = [self._row_to_result(row) for row in rows]
 
         if fmt == "json":
             payload = [res.model_dump() for res in results]
@@ -273,32 +292,31 @@ class ReviewStore:
                 f"{item.description} ({item.quantity:g}x{item.unit_price:g}={item.line_total:g})"
                 for item in d.line_items
             )
-            writer.writerow(
-                {
-                    "job_id": res.job_id,
-                    "filename": res.filename or "",
-                    "doc_type": res.doc_type,
-                    "status": res.status,
-                    "overall_confidence": res.overall_confidence,
-                    "reconciliation_passed": res.reconciliation_passed,
-                    "document_number": doc_number,
-                    "document_date": doc_date,
-                    "due_date": due_date,
-                    "counterparty_vendor": vendor,
-                    "vendor_npwp": npwp,
-                    "buyer_name": buyer,
-                    "delivery_address": address,
-                    "payment_method": payment,
-                    "currency": d.currency,
-                    "line_item_count": len(d.line_items),
-                    "line_items_summary": items_summary,
-                    "subtotal": subtotal,
-                    "tax_amount": tax,
-                    "total_amount": total,
-                    "reviewer_notes": res.reviewer_notes or "",
-                    "created_at": res.created_at,
-                    "updated_at": res.updated_at or "",
-                }
-            )
+            row_dict = {
+                "job_id": res.job_id,
+                "filename": res.filename or "",
+                "doc_type": res.doc_type,
+                "status": res.status,
+                "overall_confidence": res.overall_confidence,
+                "reconciliation_passed": res.reconciliation_passed,
+                "document_number": doc_number,
+                "document_date": doc_date,
+                "due_date": due_date,
+                "counterparty_vendor": vendor,
+                "vendor_npwp": npwp,
+                "buyer_name": buyer,
+                "delivery_address": address,
+                "payment_method": payment,
+                "currency": d.currency,
+                "line_item_count": len(d.line_items),
+                "line_items_summary": items_summary,
+                "subtotal": subtotal,
+                "tax_amount": tax,
+                "total_amount": total,
+                "reviewer_notes": res.reviewer_notes or "",
+                "created_at": res.created_at,
+                "updated_at": res.updated_at or "",
+            }
+            writer.writerow({k: _sanitize_csv_cell(v) for k, v in row_dict.items()})
 
         return buf.getvalue(), "text/csv; charset=utf-8"

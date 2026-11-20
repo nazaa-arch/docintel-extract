@@ -50,6 +50,9 @@ class Settings(BaseModel):
     db_path: Path = Field(default=Path("data/docintel_review.db"))
     upload_dir: Path = Field(default=Path("data/uploads"))
     samples_dir: Path = Field(default=Path("data/samples"))
+    max_upload_bytes: int = Field(default=20 * 1024 * 1024, gt=0)
+    max_batch_files: int = Field(default=50, ge=1, le=500)
+    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
     http_timeout_seconds: float = Field(default=45.0, gt=0.0)
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000, ge=1, le=65535)
@@ -67,6 +70,10 @@ class Settings(BaseModel):
         threshold_raw = _env_value("DOCINTEL_REVIEW_CONFIDENCE_THRESHOLD", dotenv_values, "0.80")
         timeout_raw = _env_value("DOCINTEL_HTTP_TIMEOUT_SECONDS", dotenv_values, "45.0")
         port_raw = _env_value("DOCINTEL_PORT", dotenv_values, "8000")
+        max_upload_mb_raw = _env_value("DOCINTEL_MAX_UPLOAD_MB", dotenv_values, "20")
+        max_batch_raw = _env_value("DOCINTEL_MAX_BATCH_FILES", dotenv_values, "50")
+        cors_raw = _env_value("DOCINTEL_CORS_ORIGINS", dotenv_values, "*") or "*"
+        cors_origins = [origin.strip() for origin in cors_raw.split(",") if origin.strip()] or ["*"]
 
         return cls(
             provider=provider,  # type: ignore[arg-type]
@@ -93,6 +100,9 @@ class Settings(BaseModel):
                 _env_value("DOCINTEL_SAMPLES_DIR", dotenv_values, "data/samples")
                 or "data/samples"
             ),
+            max_upload_bytes=int(float(max_upload_mb_raw or "20") * 1024 * 1024),
+            max_batch_files=int(max_batch_raw or "50"),
+            cors_origins=cors_origins,
             http_timeout_seconds=float(timeout_raw or "45.0"),
             host=_env_value("DOCINTEL_HOST", dotenv_values, "0.0.0.0") or "0.0.0.0",
             port=int(port_raw or "8000"),

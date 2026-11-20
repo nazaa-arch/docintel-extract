@@ -11,10 +11,11 @@ services:
       - DOCINTEL_GEMINI_API_KEY=${DOCINTEL_GEMINI_API_KEY:-}
       - DOCINTEL_OPENAI_API_KEY=${DOCINTEL_OPENAI_API_KEY:-}
       - DOCINTEL_REVIEW_CONFIDENCE_THRESHOLD=${DOCINTEL_REVIEW_CONFIDENCE_THRESHOLD:-0.80}
-      - DOCINTEL_DB_PATH=/app/data/docintel_review.db
-      - DOCINTEL_UPLOAD_DIR=/app/data/uploads
+      - DOCINTEL_DB_PATH=/app/state/docintel_review.db
+      - DOCINTEL_UPLOAD_DIR=/app/state/uploads
+      - DOCINTEL_SAMPLES_DIR=/app/data/samples
     volumes:
-      - docintel_data:/app/data
+      - docintel_data:/app/state
     restart: unless-stopped
 
 volumes:

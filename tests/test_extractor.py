@@ -160,3 +160,79 @@ def test_cloud_adapters_require_api_keys(test_settings: Settings) -> None:
         extractor.extract(doc, doc_type="invoice", provider_override="gemini")
     with pytest.raises(ValueError, match="DOCINTEL_OPENAI_API_KEY"):
         extractor.extract(doc, doc_type="invoice", provider_override="openai")
+
+
+def test_gemini_adapter_uses_header_auth_and_inline_image(monkeypatch: pytest.MonkeyPatch, test_settings: Settings) -> None:
+    settings = test_settings.model_copy(update={"gemini_api_key": "test-gem-secret", "model": "gemini-2.0-flash"})
+    mock_payload = {
+        "invoice_number": "INV-GEM-01",
+        "issue_date": "2026-06-01",
+        "due_date": "2026-07-01",
+        "vendor_name": "PT Gemini Vision",
+        "vendor_npwp": None,
+        "buyer_name": "PT Client",
+        "currency": "USD",
+        "line_items": [{"description": "API Credits", "quantity": 1, "unit_price": 100.0, "line_total": 100.0}],
+        "subtotal": 100.0,
+        "tax_amount": 10.0,
+        "total_amount": 110.0,
+    }
+
+    class FakeResp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"candidates": [{"content": {"parts": [{"text": json.dumps(mock_payload)}]}}]}
+
+    def fake_post(self: httpx.Client, url: str, **kwargs: Any) -> FakeResp:
+        assert "generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent" in url
+        # API key must be sent in header, never exposed in URL query params
+        assert "params" not in kwargs or not kwargs["params"]
+        assert kwargs["headers"]["x-goog-api-key"] == "test-gem-secret"
+        parts = kwargs["json"]["contents"][0]["parts"]
+        assert any("inlineData" in p for p in parts)
+        return FakeResp()
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    doc = ingest_file(SAMPLES_DIR / "invoice_en_01.pdf", render_images=True)
+    out = DocumentExtractor(settings).extract(doc, doc_type="invoice", provider_override="gemini")
+    assert out.provider == "gemini"
+    assert isinstance(out.data, InvoiceData)
+    assert out.data.invoice_number == "INV-GEM-01"
+
+
+def test_openai_adapter_payload_and_json_parsing(monkeypatch: pytest.MonkeyPatch, test_settings: Settings) -> None:
+    settings = test_settings.model_copy(update={"openai_api_key": "test-oai-secret", "model": "gpt-4o-mini"})
+    mock_payload = {
+        "merchant_name": "Vision Cafe",
+        "transaction_date": "2026-06-05",
+        "receipt_number": "RCPT-OAI-1",
+        "payment_method": "Card",
+        "currency": "USD",
+        "line_items": [{"description": "Espresso", "quantity": 2, "unit_price": 4.0, "line_total": 8.0}],
+        "tax_amount": 0.8,
+        "total_amount": 8.8,
+    }
+
+    class FakeResp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"choices": [{"message": {"content": f"Here is the JSON:\n{json.dumps(mock_payload)}"}}]}
+
+    def fake_post(self: httpx.Client, url: str, **kwargs: Any) -> FakeResp:
+        assert url.endswith("/chat/completions")
+        assert kwargs["headers"]["Authorization"] == "Bearer test-oai-secret"
+        assert kwargs["json"]["response_format"] == {"type": "json_object"}
+        content = kwargs["json"]["messages"][0]["content"]
+        assert any(part.get("type") == "image_url" for part in content)
+        return FakeResp()
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    doc = ingest_file(SAMPLES_DIR / "receipt_en_01.pdf", render_images=True)
+    out = DocumentExtractor(settings).extract(doc, doc_type="receipt", provider_override="openai")
+    assert out.provider == "openai"
+    assert isinstance(out.data, ReceiptData)
+    assert out.data.receipt_number == "RCPT-OAI-1"

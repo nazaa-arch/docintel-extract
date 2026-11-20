@@ -380,7 +380,7 @@
         </div>
 
         <div class="field-row">
-          <label>Quick Demo — Real Generated Sample PDFs</label>
+          <label>Quick Demo — Synthetic Sample PDFs</label>
           <div class="sample-grid">
             <button class="sample-btn primary" onclick="loadSample('invoice_id_01.pdf')">Load Sample Invoice PDF</button>
             <button class="sample-btn" onclick="loadSample('po_id_01.pdf')">Sample PO PDF</button>
@@ -565,7 +565,17 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatErrorDetail(err, fallback) {
+      if (!err || !err.detail) return fallback;
+      if (typeof err.detail === 'string') return err.detail;
+      if (Array.isArray(err.detail)) {
+        return err.detail.map(d => (d && d.msg ? d.msg : JSON.stringify(d))).join('; ');
+      }
+      return fallback;
     }
 
     async function refreshHealth() {
@@ -590,13 +600,13 @@
         return;
       }
       list.innerHTML = jobs.map(j => `
-        <div class="queue-item ${currentJob && currentJob.job_id === j.job_id ? 'selected' : ''}" onclick="loadJob('${j.job_id}')">
+        <div class="queue-item ${currentJob && currentJob.job_id === j.job_id ? 'selected' : ''}" data-job-id="${escapeHtml(j.job_id)}">
           <div class="queue-item-top">
             <span class="queue-item-name">${escapeHtml(j.filename || j.job_id)}</span>
-            <span class="pill ${statusPillClass(j.status)}" style="font-size:10px; padding:2px 7px;">${j.status}</span>
+            <span class="pill ${statusPillClass(j.status)}" style="font-size:10px; padding:2px 7px;">${escapeHtml(j.status)}</span>
           </div>
           <div class="queue-item-meta">
-            <span>${j.doc_type.toUpperCase()} · ${(j.overall_confidence * 100).toFixed(1)}%</span>
+            <span>${escapeHtml(String(j.doc_type || '').toUpperCase())} · ${(Number(j.overall_confidence || 0) * 100).toFixed(1)}%</span>
             <span>${j.reconciliation_passed ? 'Math OK' : 'Math Mismatch'}</span>
           </div>
         </div>
@@ -611,7 +621,7 @@
     }
 
     async function loadJob(jobId) {
-      const res = await fetch(`/v1/jobs/${jobId}`);
+      const res = await fetch(`/v1/jobs/${encodeURIComponent(jobId)}`);
       if (!res.ok) return showToast('Failed to load job');
       const job = await res.json();
       renderJob(job);
@@ -625,8 +635,8 @@
         method: 'POST',
       });
       if (!res.ok) {
-        const err = await res.json();
-        return showToast(err.detail || 'Sample extraction failed');
+        const err = await res.json().catch(() => null);
+        return showToast(formatErrorDetail(err, 'Sample extraction failed'));
       }
       const job = await res.json();
       renderJob(job);
@@ -641,8 +651,8 @@
       fd.append('doc_type', document.getElementById('docTypeSelect').value);
       const res = await fetch('/v1/extract', { method: 'POST', body: fd });
       if (!res.ok) {
-        const err = await res.json();
-        return showToast(err.detail || 'Upload extraction failed');
+        const err = await res.json().catch(() => null);
+        return showToast(formatErrorDetail(err, 'Upload extraction failed'));
       }
       const job = await res.json();
       renderJob(job);
@@ -660,8 +670,8 @@
         body: JSON.stringify({ text, filename: 'pasted_document.txt', doc_type: docType }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        return showToast(err.detail || 'Text extraction failed');
+        const err = await res.json().catch(() => null);
+        return showToast(formatErrorDetail(err, 'Text extraction failed'));
       }
       const job = await res.json();
       renderJob(job);
@@ -743,9 +753,9 @@
           <tr>
             <td>${i + 1}</td>
             <td>${escapeHtml(it.description)}</td>
-            <td>${it.quantity}</td>
-            <td>${formatMoney(it.unit_price, job.data.currency)}</td>
-            <td>${formatMoney(it.line_total, job.data.currency)}</td>
+            <td>${escapeHtml(it.quantity)}</td>
+            <td>${escapeHtml(formatMoney(it.unit_price, job.data.currency))}</td>
+            <td>${escapeHtml(formatMoney(it.line_total, job.data.currency))}</td>
             <td><span class="pill ${ok ? 'green' : 'red'}">${ok ? 'OK' : 'DIFF'}</span></td>
           </tr>
         `;
@@ -756,10 +766,11 @@
       const scalarEntries = Object.entries(job.data).filter(([k]) => k !== 'line_items');
       grid.innerHTML = scalarEntries.map(([k, v]) => {
         const isNum = ['subtotal', 'tax_amount', 'total_amount'].includes(k);
+        const safeKey = escapeHtml(k);
         return `
           <div class="field-row" style="margin-top:0;">
-            <label for="hitl_${k}">${escapeHtml(k)}</label>
-            <input id="hitl_${k}" data-field="${k}" data-type="${isNum ? 'number' : 'text'}"
+            <label for="hitl_${safeKey}">${safeKey}</label>
+            <input id="hitl_${safeKey}" data-field="${safeKey}" data-type="${isNum ? 'number' : 'text'}"
               type="${isNum ? 'number' : 'text'}" step="any"
               value="${v !== null && v !== undefined ? escapeHtml(v) : ''}" />
           </div>
@@ -792,20 +803,28 @@
       }
 
       const reviewer_notes = document.getElementById('hitlReviewerNotes').value.trim() || null;
-      const res = await fetch(`/v1/jobs/${currentJob.job_id}/review`, {
+      const res = await fetch(`/v1/jobs/${encodeURIComponent(currentJob.job_id)}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: patch, reviewer_notes, approve }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        return showToast(err.detail || 'Review submission failed');
+        const err = await res.json().catch(() => null);
+        return showToast(formatErrorDetail(err, 'Review submission failed'));
       }
       const updated = await res.json();
       renderJob(updated);
       refreshQueue();
       showToast(`Job updated → ${updated.status} (Reconciliation: ${updated.reconciliation_passed ? 'PASSED' : 'MISMATCH'})`);
     }
+
+    // Event delegation for queue items (avoids inline JS string interpolation)
+    document.getElementById('queueList').addEventListener('click', e => {
+      const item = e.target.closest('.queue-item[data-job-id]');
+      if (item && item.dataset.jobId) {
+        loadJob(item.dataset.jobId);
+      }
+    });
 
     // Drag & Drop bindings
     const dropzone = document.getElementById('dropzone');

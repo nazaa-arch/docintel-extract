@@ -871,6 +871,27 @@ def _strip_json_fences(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _parse_llm_json(raw_text: str, provider: str) -> dict[str, Any]:
+    """Parse structured JSON returned by a Vision-LLM adapter, tolerating fences or preamble text."""
+    cleaned = _strip_json_fences(raw_text)
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end > start:
+            try:
+                parsed = json.loads(cleaned[start : end + 1])
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Provider '{provider}' returned invalid JSON.") from exc
+        else:
+            raise ValueError(f"Provider '{provider}' did not return a JSON object.") from None
+
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Provider '{provider}' returned JSON of type '{type(parsed).__name__}', expected object.")
+    return parsed
+
+
 def _build_llm_prompt(doc: IngestedDocument, doc_type: DocType) -> str:
     schema_cls = schema_for_doc_type(doc_type)
     schema_json = json.dumps(schema_cls.model_json_schema(), indent=2)
@@ -904,9 +925,13 @@ def _extract_via_ollama(doc: IngestedDocument, doc_type: DocType, settings: Sett
     with httpx.Client(timeout=settings.http_timeout_seconds) as client:
         resp = client.post(url, json=payload)
         resp.raise_for_status()
-        content = resp.json()["message"]["content"]
+        body = resp.json()
 
-    parsed = json.loads(_strip_json_fences(content))
+    content = (body.get("message") or {}).get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("Ollama response did not contain message.content text.")
+
+    parsed = _parse_llm_json(content, provider="ollama")
     model_cls = schema_for_doc_type(doc_type)
     validated = model_cls.model_validate(parsed)
     sources = {k: "llm:ollama" for k in model_cls.model_fields}
@@ -928,13 +953,22 @@ def _extract_via_gemini(doc: IngestedDocument, doc_type: DocType, settings: Sett
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
     }
+    headers = {"x-goog-api-key": settings.gemini_api_key}
     with httpx.Client(timeout=settings.http_timeout_seconds) as client:
-        resp = client.post(url, params={"key": settings.gemini_api_key}, json=payload)
+        resp = client.post(url, headers=headers, json=payload)
         resp.raise_for_status()
         body = resp.json()
-        content = body["candidates"][0]["content"]["parts"][0]["text"]
 
-    parsed = json.loads(_strip_json_fences(content))
+    candidates = body.get("candidates") or []
+    if not candidates:
+        raise ValueError("Gemini response returned no candidates (possibly blocked by safety filters).")
+    resp_parts = (candidates[0].get("content") or {}).get("parts") or []
+    text_chunks = [p["text"] for p in resp_parts if isinstance(p, dict) and isinstance(p.get("text"), str)]
+    content = "\n".join(text_chunks).strip()
+    if not content:
+        raise ValueError("Gemini candidate did not contain text content.")
+
+    parsed = _parse_llm_json(content, provider="gemini")
     model_cls = schema_for_doc_type(doc_type)
     validated = model_cls.model_validate(parsed)
     sources = {k: "llm:gemini" for k in model_cls.model_fields}
@@ -952,19 +986,28 @@ def _extract_via_openai(doc: IngestedDocument, doc_type: DocType, settings: Sett
 
     model_name = settings.model if any(k in settings.model.lower() for k in ("gpt", "o1", "o3", "o4")) else "gpt-4o-mini"
     url = f"{settings.openai_base_url}/chat/completions"
-    payload = {
+    payload: dict[str, Any] = {
         "model": model_name,
-        "temperature": 0.0,
         "response_format": {"type": "json_object"},
         "messages": [{"role": "user", "content": content_parts}],
     }
+    if not model_name.lower().startswith(("o1", "o3", "o4")):
+        payload["temperature"] = 0.0
+
     headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
     with httpx.Client(timeout=settings.http_timeout_seconds) as client:
         resp = client.post(url, headers=headers, json=payload)
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+        body = resp.json()
 
-    parsed = json.loads(_strip_json_fences(content))
+    choices = body.get("choices") or []
+    if not choices:
+        raise ValueError("OpenAI response returned no choices.")
+    content = (choices[0].get("message") or {}).get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("OpenAI response did not contain message.content text.")
+
+    parsed = _parse_llm_json(content, provider="openai")
     model_cls = schema_for_doc_type(doc_type)
     validated = model_cls.model_validate(parsed)
     sources = {k: "llm:openai" for k in model_cls.model_fields}
